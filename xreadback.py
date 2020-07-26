@@ -12,7 +12,34 @@
 import sys
 import ctypes
 import time
+import re
 from sdl2 import *
+from pynput import *
+
+# ********************************************************************************************
+#
+#									A wrapper for pynput 
+#
+# ********************************************************************************************
+
+class MouseController(object):
+	def __init__(self):
+		self.mouse = mouse.Controller()
+	#
+	#		Move mouse
+	#
+	def move(self,x,y):
+		self.mouse.position = (x,y)
+	#
+	#		Click mouse left button
+	#
+	def click(self):
+		self.mouse.click(mouse.Button.left, 1)
+	#
+	#		Get position
+	#
+	def getPosition(self):
+		return self.mouse.position
 
 # ********************************************************************************************
 #
@@ -68,6 +95,7 @@ class JoystickButtons(object):
 	#
 	def test(self):
 		event = SDL_Event()
+		mc = MouseController()
 		while True:
 			while SDL_PollEvent(ctypes.byref(event)) != 0: 								# Message pump
 				if event.type == SDL_QUIT:
@@ -75,13 +103,13 @@ class JoystickButtons(object):
 			for n in range(0,32):														# Scan and print pressed buttons
 				if SDL_JoystickGetButton(self.joystick,n) != 0:
 					print("Button {0} pressed.".format(n))
-			print()
+			print("Cursor at ",mc.getPosition())
 
 JoystickButtons.isInitialised = False		
 
 # ********************************************************************************************
 #
-#										Test class
+#									Test Handler class
 #
 # ********************************************************************************************
 
@@ -93,6 +121,62 @@ class ButtonHandlerTest(object):
 	def fireButton(self):
 		print("Fired ",self.button)
 
+# ********************************************************************************************
+#
+#							Actual move/click handler class
+#
+# ********************************************************************************************
+
+class ClickButtonHandler(object):
+	def __init__(self,definition,mouseController):
+		self.mouseController = mouseController
+		if isinstance(definition,str):
+			definition = self.makeList(definition)
+		assert len(definition) == 3,"Bad mouse/button definition"
+		print("Added definition Button {0} at {1},{2}".format(definition[0],definition[1],definition[2]))
+		self.button = definition[0]
+		self.x = definition[1]
+		self.y = definition[2]
+	#
+	#		Get the button ID
+	#
+	def getButton(self):
+		return self.button
+	#
+	#		Handle button being clicked.
+	#
+	def fireButton(self):
+		print("Firing "+str(self.button))
+		self.mouseController.move(self.x,self.y)
+		self.mouseController.click()
+	#
+	#		Convert string list to list of integers, mouse definition
+	#
+	def makeList(self,defn):
+		defn = defn.replace(" ","").replace("\t"," ")
+		assert re.match("^\\d+\\,\\d+\\,\\d+$",defn) is not None,"Bad definition "+defn
+		return [int(x) for x in defn.split(",")]
+
+#jb.test()
+#jb.run([ButtonHandlerTest(1),ButtonHandlerTest(2),ButtonHandlerTest(3)])
+
+if len(sys.argv) == 1:
+	print("xreadback v0.1 by Paul Robson paul@robsons.org.uk. MIT Licensed.")
+	print("\txreadback test - display buttons as pressed")
+	print("\txreadback b,x,y b,x,y - map joystick button to click at x,y ")
+	sys.exit(0)
+
 jb = JoystickButtons()
-jb.test()
-jb.run([ButtonHandlerTest(1),ButtonHandlerTest(2),ButtonHandlerTest(3)])
+mc = MouseController()
+
+if len(sys.argv) == 2 and sys.argv[1].lower().strip() == "test":
+	jb.test()
+
+buttonHandlers = []
+for h in sys.argv[1:]:
+	buttonHandlers.append(ClickButtonHandler(h,mc))	
+jb.run(buttonHandlers)
+
+#mc = MouseController()
+#mc.move(146,800)
+#	mc.click()
