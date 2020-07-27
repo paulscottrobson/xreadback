@@ -56,7 +56,7 @@ are being pressed. (Interrupt it with control C)
 Now suppose you want button 4 to do the readback, and the centre of the readback button is at
 146,810. You would run the app with :
 
-python 4,146,810
+python xreadback.py 4,146,810
 
 This makes button 4 move the mouse cursor to 146,810 and click it. It will click whatever is at that
 location. It's really for in flight, where you may not want to take your hands off the smaller planes 
