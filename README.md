@@ -19,6 +19,7 @@ Please feed back any issues !
 
 Python3 programming language
 	(from https://www.python.org/downloads/)
+	When installing python click the checkbox to 'add to PATH'
 
 pysdl2 Python library
 	(Install via "pip install -U pysdl2")
