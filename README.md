@@ -21,15 +21,19 @@ Python3 programming language
 	(from https://www.python.org/downloads/)
 	When installing python click the checkbox to 'add to PATH'
 
+Open a command prompt (text input window) and install the following Python libraries.
+Each should display some progress information and end with "Successfully installed" or
+something like that.
+
 pysdl2 Python library
-	(Install via "pip install -U pysdl2")
+	(Install via "pip install pysdl2")
 
 sdl2 library
 	(For Linux, often present or available in installer)
-	(For Mac/Windows install with "pip install -U pysdl2-dll")
+	(For Mac/Windows install with "pip install pysdl2-dll")
 
 pynput Python library
-	(Install via "pip install -U pynput")
+	(Install via "pip install pynput")
 
 Usage
 =====
@@ -49,7 +53,7 @@ The app is run at a terminal or command prompt.
 
 To identify the buttons and get the position, do :
 
-python xreadback.py test. 
+python xreadback.py test
 
 This is incredibly rough and ready but shows you where the mouse cursor is, and what buttons 
 are being pressed. (Interrupt it with control C)
