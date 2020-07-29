@@ -83,13 +83,13 @@ class JoystickButtons(object):
 			while SDL_PollEvent(ctypes.byref(event)) != 0: 								# don't seem to have button-down events.
 				if event.type == SDL_QUIT:
 					running = False
-			time.sleep(0.2)																# check 5 times a second, don't go mad.
 			for h in buttonHandlerList:													# for each handler
 				newState = SDL_JoystickGetButton(self.joystick,h.getButton()) != 0 		# get the new state of the button
 				if newState != buttonStates[h.getButton()]:								# state changed ?
 					buttonStates[h.getButton()] = newState 								# update it
 					if newState:														# on button down
 						h.fireButton()													# fire it.
+			time.sleep(0.2)																# check 5 times a second, don't go mad.
 	#
 	#		Make identifying buttons easy. Prints buttons when pressed.
 	#
