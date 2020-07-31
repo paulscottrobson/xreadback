@@ -3,7 +3,7 @@
 #
 #		Name: 		xreadback.py
 #		Author:		Paul Robson (paul@robsons.org.uk)
-#		Purpose:	Convert joystick button/keyboard presses to GUI mouse clicks
+#		Purpose:	Convert joystick button presses to GUI mouse clicks
 #		Date:		26th July 2020
 #
 # ********************************************************************************************
@@ -13,7 +13,7 @@ import sys
 import ctypes
 import time
 import re
-from inputs import *
+from sdl2 import *
 from pynput import *
 
 # ********************************************************************************************
@@ -40,60 +40,72 @@ class MouseController(object):
 	#
 	def getPosition(self):
 		return self.mouse.position
-	#
-	#		Test mouse controller.
-	#
-	def test(self):
-		while True:
-			print("Mouse cursor at ",self.getPosition())
 
 # ********************************************************************************************
 #
-#							  Event Handler Base Class
+#							Joystick Button wrapper class
 #								 (also wraps pysdl2)
 #
 # ********************************************************************************************
 
-class EventSource(object):
-
-	def run(self,handlers):
-		self.handlers = handlers
-		self.poll()
-
+class JoystickButtons(object):
+	def __init__(self):
+		if not JoystickButtons.isInitialised:											# Only initialise SDL once
+			self.initialiseSDL()
+			assert SDL_NumJoysticks() > 0,"No joystick connected"						# Check joystick available
+			self.joystick = SDL_JoystickOpen(0);										# Access the primary
+			print("Found joystick")
+	#
+	#		Initialise SDL and Joystick subsystem
+	#
+	def initialiseSDL(self):
+		SDL_Init(SDL_INIT_JOYSTICK)
+		JoystickButtons.isInitialised = True
+	#
+	#		Close down.
+	#
+	def close(self):
+		if JoystickButtons.isInitialised:
+			SDL_JoystickClose(self.joystick)
+			SDL_Quit();
+			JoystickButtons.isInitialised = False
+	#
+	#		Track button events and fire accordingly
+	#
+	def run(self,buttonHandlerList = []): 						
+		assert JoystickButtons.isInitialised											# check running SDL
+		running = True							
+		event = SDL_Event()
+		buttonStates = {} 																# set initial states of buttons to false for each handler
+		for h in buttonHandlerList:
+			buttonStates[h.getButton()] = False
+		while running:																	# we *might* break out but probably won't.
+			while SDL_PollEvent(ctypes.byref(event)) != 0: 								# don't seem to have button-down events.
+				if event.type == SDL_QUIT:
+					running = False
+			time.sleep(0.2)																# check 5 times a second, don't go mad.
+			for h in buttonHandlerList:													# for each handler
+				newState = SDL_JoystickGetButton(self.joystick,h.getButton()) != 0 		# get the new state of the button
+				if newState != buttonStates[h.getButton()]:								# state changed ?
+					buttonStates[h.getButton()] = newState 								# update it
+					if newState:														# on button down
+						h.fireButton()													# fire it.
+	#
+	#		Make identifying buttons easy. Prints buttons when pressed.
+	#
 	def test(self):
-		self.run([])
-
-	def poll(self):
-		self.handlerHash = {}
-		for h in self.handlers:
-			self.handlerHash[h.getButton()] = h
+		event = SDL_Event()
+		mc = MouseController()
 		while True:
-			events = self.getEvents()												# get events
-			if events:																# filter and send them.
-				for e in events:
-					if e.ev_type == "Key" and e.state != 0:
-						self.fireEvent(e.code.lower())
-		time.sleep(0.1)																# check 10 times a second, don't go mad.
+			while SDL_PollEvent(ctypes.byref(event)) != 0: 								# Message pump
+				if event.type == SDL_QUIT:
+					running = False
+			for n in range(0,32):														# Scan and print pressed buttons
+				if SDL_JoystickGetButton(self.joystick,n) != 0:
+					print("Button {0} pressed.".format(n))
+			print("Cursor at ",mc.getPosition())
 
-	def fireEvent(self,key):
-		print("Event:",key)
-		if key in self.handlerHash:
-			print("Firing:",key)
-			self.handlerHash[key].fireButton()
-
-
-class KeyEventSource(EventSource):
-	def getEvents(self):
-		return get_key()													
-
-class ButtonEventSource(EventSource):
-	def getEvents(self):
-		try:
-			events = get_gamepad()													
-		except UnknownEventCode:
-			print("Warning:Not a definable button.")
-			events = None
-		return events
+JoystickButtons.isInitialised = False		
 
 # ********************************************************************************************
 #
@@ -101,7 +113,7 @@ class ButtonEventSource(EventSource):
 #
 # ********************************************************************************************
 
-class TestHandler(object):
+class ButtonHandlerTest(object):
 	def __init__(self,button):
 		self.button = button
 	def getButton(self):
@@ -134,7 +146,7 @@ class ClickButtonHandler(object):
 	#		Handle button being clicked.
 	#
 	def fireButton(self):
-		print("Move and click:",self.button)
+		print("Firing "+str(self.button))
 		self.mouseController.move(self.x,self.y)
 		self.mouseController.click()
 	#
@@ -142,33 +154,29 @@ class ClickButtonHandler(object):
 	#
 	def makeList(self,defn):
 		defn = defn.replace(" ","").replace("\t"," ")
-		m = re.match("^(.*?)\\,(\\d+)\\,(\\d+)$",defn) 
-		assert m is not None,"Bad definition "+defn
-		return [m.group(1).strip().lower(),int(m.group(2)),int(m.group(3))]
+		assert re.match("^\\d+\\,\\d+\\,\\d+$",defn) is not None,"Bad definition "+defn
+		return [int(x) for x in defn.split(",")]
+
+#jb.test()
+#jb.run([ButtonHandlerTest(1),ButtonHandlerTest(2),ButtonHandlerTest(3)])
 
 if len(sys.argv) == 1:
-	print("xreadback v0.2 by Paul Robson paul@robsons.org.uk. MIT Licensed.")
-	print("\txreadback mouse|buttons|keys - display mouse pos, pressed buttons,pressed keys")
-	print("\txreadback event,x,y event,x,y - map events button to click at x,y ")
-	print("\tfor example : xreadback btn_trigger,56,16")
+	print("xreadback v0.1 by Paul Robson paul@robsons.org.uk. MIT Licensed.")
+	print("\txreadback test - display buttons as pressed")
+	print("\txreadback b,x,y b,x,y - map joystick button to click at x,y ")
 	sys.exit(0)
 
+jb = JoystickButtons()
 mc = MouseController()
 
-if len(sys.argv) == 2:
-	param2 = sys.argv[1].lower().strip() 
-	if param2 == "mouse":
-		mc.test()
-	elif param2 == "keys":
-		KeyEventSource().test()
-	elif param2 == "buttons":
-		ButtonEventSource().test()
+if len(sys.argv) == 2 and sys.argv[1].lower().strip() == "test":
+	jb.test()
 
-handlers = []
-for i in range(1,len(sys.argv)):
-	handlers.append(ClickButtonHandler(sys.argv[i],mc))
-	assert handlers[0].getButton()[:3] == handlers[-1].getButton()[:3],"Cannot mix joystick buttons/keys"
+buttonHandlers = []
+for h in sys.argv[1:]:
+	buttonHandlers.append(ClickButtonHandler(h,mc))	
+jb.run(buttonHandlers)
 
-source = KeyEventSource() if handlers[0].getButton()[:3] == "key" else ButtonEventSource()
-
-source.run(handlers)
+#mc = MouseController()
+#mc.move(146,800)
+#	mc.click()
